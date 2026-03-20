@@ -3,27 +3,6 @@ kind: Namespace
 metadata:
   name: flappy-ro
 ---
-# NOTE: Create this secret manually, do NOT commit real passwords to git:
-# kubectl create secret generic flappy-secret -n flappy-ro \
-#   --from-literal=POSTGRES_DB=flappydb \
-#   --from-literal=POSTGRES_USER=flappy \
-#   --from-literal=POSTGRES_PASSWORD=flappypass \
-#   --from-literal=DATABASE_URL="postgresql://flappy:flappypass@postgres-service:5432/flappydb"
-#
-# The block below is a PLACEHOLDER with fake base64 values.
-# Replace or use the kubectl command above.
-apiVersion: v1
-kind: Secret
-metadata:
-  name: flappy-secret
-  namespace: flappy-ro
-type: Opaque
-data:
-  POSTGRES_DB: ZmxhcHB5ZGI=         # flappydb
-  POSTGRES_USER: ZmxhcHB5           # flappy
-  POSTGRES_PASSWORD: ZmxhcHB5cGFzcw== # flappypass
-  DATABASE_URL: cG9zdGdyZXNxbDovL2ZsYXBweT==  # placeholder - set manually!
----
 apiVersion: v1
 kind: Service
 metadata:

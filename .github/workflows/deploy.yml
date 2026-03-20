@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: control-node
+    runs-on: self-hosted
 
     steps:
       - name: Checkout
@@ -32,7 +32,7 @@ jobs:
 
       - name: Deploy to k3s
         run: |
-          kubectl apply -f k3s/postgres.yaml
+          kubectl apply -f k3s/postgres.yaml  # no secret - create manually!
           kubectl apply -f k3s/deployment.yaml
           kubectl set image deployment/flappy-ro \
             flappy-ro=mariuseu/flappy-ro:${{ env.IMAGE_TAG }} \
