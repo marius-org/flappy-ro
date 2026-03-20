@@ -1,0 +1,45 @@
+name: Build & Deploy Flappy-RO
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            mariuseu/flappy-ro:latest
+            mariuseu/flappy-ro:${{ env.IMAGE_TAG }}
+
+      - name: Deploy to k3s
+        run: |
+          kubectl apply -f k3s/postgres.yaml
+          kubectl apply -f k3s/deployment.yaml
+          kubectl set image deployment/flappy-ro \
+            flappy-ro=mariuseu/flappy-ro:${{ env.IMAGE_TAG }} \
+            -n flappy-ro
+          kubectl rollout status deployment/flappy-ro -n flappy-ro --timeout=120s
+
+      - name: Verify
+        run: |
+          kubectl get pods -n flappy-ro
+          kubectl get svc -n flappy-ro
