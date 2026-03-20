@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flappy-RO 🐦</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --sky: #1a0a2e;
+      --sky2: #16213e;
+      --pipe: #cc2936;
+      --pipe-dark: #8b1a22;
+      --pipe-light: #ff4d5a;
+      --bird: #ffd700;
+      --bird-dark: #e6a800;
+      --ground: #2d1b00;
+      --ground2: #4a2e00;
+      --star: #fff8e7;
+      --score: #ffd700;
+      --ui-bg: rgba(10,5,20,0.85);
+      --accent: #cc2936;
+      --white: #fff8e7;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--sky);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Press Start 2P', monospace;
+      overflow: hidden;
+    }
+    #game-wrapper {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    #title {
+      color: var(--score);
+      font-size: 22px;
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px #cc2936, 3px 3px 0 #8b1a22;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { text-shadow: 0 0 20px #cc2936, 3px 3px 0 #8b1a22; }
+      50% { text-shadow: 0 0 40px #ff4d5a, 3px 3px 0 #8b1a22; }
+    }
+    canvas {
+      border: 3px solid var(--accent);
+      box-shadow: 0 0 30px rgba(204,41,54,0.5), 0 0 60px rgba(204,41,54,0.2);
+      image-rendering: pixelated;
+      display: block;
+    }
+    #hud {
+      position: absolute;
+      top: 60px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 16px;
+      pointer-events: none;
+    }
+    #score-display {
+      color: var(--white);
+      font-size: 14px;
+      text-shadow: 2px 2px 0 #000;
+    }
+    #best-display {
+      color: #aaa;
+      font-size: 10px;
+      text-shadow: 2px 2px 0 #000;
+    }
+
+    /* Overlay screens */
+    .overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--ui-bg);
+      gap: 16px;
+      z-index: 10;
+    }
+    .overlay h2 {
+      color: var(--score);
+      font-size: 18px;
+      text-shadow: 3px 3px 0 #8b1a22;
+    }
+    .overlay p {
+      color: var(--white);
+      font-size: 9px;
+      line-height: 2;
+      text-align: center;
+    }
+    .overlay .big-score {
+      color: var(--accent);
+      font-size: 36px;
+      text-shadow: 3px 3px 0 #8b1a22;
+    }
+
+    /* Leaderboard */
+    #leaderboard {
+      background: rgba(0,0,0,0.6);
+      border: 2px solid var(--accent);
+      padding: 10px 16px;
+      width: 260px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    #leaderboard h3 {
+      color: var(--score);
+      font-size: 9px;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .lb-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--white);
+      font-family: 'VT323', monospace;
+      font-size: 16px;
+      padding: 2px 0;
+      border-bottom: 1px solid rgba(204,41,54,0.2);
+    }
+    .lb-row:first-child { color: #ffd700; }
+    .lb-row .rank { color: var(--accent); width: 28px; }
+
+    /* Input + button */
+    input[type=text] {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      background: rgba(0,0,0,0.7);
+      border: 2px solid var(--accent);
+      color: var(--white);
+      padding: 8px 12px;
+      outline: none;
+      width: 200px;
+      text-align: center;
+    }
+    button {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      background: var(--accent);
+      color: var(--white);
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      text-shadow: 1px 1px 0 #000;
+      transition: background 0.1s;
+    }
+    button:hover { background: var(--pipe-light); }
+    button:active { transform: translateY(1px); }
+
+    #msg { color: #aaa; font-size: 7px; min-height: 12px; }
+
+    /* Stars background */
+    #stars {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    #game-wrapper { z-index: 1; }
+  </style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div id="game-wrapper">
+  <div id="title">🇷🇴 FLAPPY-RO 🇷🇴</div>
+
+  <div style="position:relative;">
+    <canvas id="canvas" width="360" height="540"></canvas>
+
+    <!-- START SCREEN -->
+    <div class="overlay" id="screen-start">
+      <h2>FLAPPY-RO</h2>
+      <p>PRESS SPACE / TAP<br>TO START</p>
+      <div id="leaderboard-start">
+        <div id="lb-start-inner"></div>
+      </div>
+      <p style="color:#666;font-size:7px;">made in Timișoara 🇷🇴</p>
+    </div>
+
+    <!-- DEAD SCREEN -->
+    <div class="overlay" id="screen-dead" style="display:none;">
+      <h2>GAME OVER</h2>
+      <div class="big-score" id="final-score">0</div>
+      <div id="score-form">
+        <p>ENTER NAME TO SAVE</p>
+        <input type="text" id="player-name" maxlength="12" placeholder="JUCATOR" />
+        <button id="btn-save">SALVEAZA</button>
+        <div id="msg"></div>
+      </div>
+      <div id="leaderboard">
+        <h3>🏆 TOP SCORES</h3>
+        <div id="lb-dead-inner"></div>
+      </div>
+      <button id="btn-restart">JOACA DIN NOU</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Stars background ────────────────────────────────────────────
+const starCanvas = document.getElementById('stars');
+const sctx = starCanvas.getContext('2d');
+starCanvas.width = window.innerWidth;
+starCanvas.height = window.innerHeight;
+const stars = Array.from({length: 120}, () => ({
+  x: Math.random() * starCanvas.width,
+  y: Math.random() * starCanvas.height,
+  r: Math.random() * 1.5 + 0.3,
+  a: Math.random(),
+  speed: Math.random() * 0.02 + 0.005
+}));
+function drawStars() {
+  sctx.clearRect(0,0,starCanvas.width, starCanvas.height);
+  stars.forEach(s => {
+    s.a += s.speed;
+    sctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(s.a));
+    sctx.fillStyle = '#fff8e7';
+    sctx.beginPath();
+    sctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    sctx.fill();
+  });
+  sctx.globalAlpha = 1;
+  requestAnimationFrame(drawStars);
+}
+drawStars();
+
+// ─── Game ────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const GRAVITY = 0.45;
+const JUMP = -8.5;
+const PIPE_W = 52;
+const PIPE_GAP = 145;
+const PIPE_SPEED = 2.6;
+const GROUND_H = 70;
+
+let bird, pipes, score, bestScore, gameState, frame, animFrame;
+// gameState: 'start' | 'playing' | 'dead'
+
+function initGame() {
+  bird = { x: 80, y: H/2 - 30, vy: 0, angle: 0, flapFrame: 0 };
+  pipes = [];
+  score = 0;
+  frame = 0;
+  gameState = 'playing';
+  bestScore = parseInt(localStorage.getItem('flappy-best') || '0');
+  document.getElementById('screen-start').style.display = 'none';
+  document.getElementById('screen-dead').style.display = 'none';
+}
+
+function jump() {
+  if (gameState === 'start') { initGame(); return; }
+  if (gameState === 'dead') return;
+  bird.vy = JUMP;
+  bird.angle = -0.4;
+}
+
+document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); jump(); }});
+canvas.addEventListener('click', jump);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, {passive:false});
+
+// ─── Drawing helpers ─────────────────────────────────────────────
+function drawBird(x, y, angle, flapFrame) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  // Body
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 18, 14, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Wing (flap)
+  const wingY = flapFrame < 4 ? -8 : 2;
+  ctx.fillStyle = '#e6a800';
+  ctx.beginPath();
+  ctx.ellipse(-4, wingY, 10, 6, -0.3, 0, Math.PI*2);
+  ctx.fill();
+
+  // Eye
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(8, -4, 5, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#111';
+  ctx.beginPath();
+  ctx.arc(9, -4, 2.5, 0, Math.PI*2);
+  ctx.fill();
+
+  // Beak
+  ctx.fillStyle = '#ff6b00';
+  ctx.beginPath();
+  ctx.moveTo(16, 0);
+  ctx.lineTo(26, -3);
+  ctx.lineTo(26, 3);
+  ctx.closePath();
+  ctx.fill();
+
+  // RO colors stripe
+  ctx.fillStyle = '#002B7F';
+  ctx.fillRect(-18, 6, 12, 4);
+  ctx.fillStyle = '#FCD116';
+  ctx.fillRect(-6, 6, 12, 4);
+  ctx.fillStyle = '#CE1126';
+  ctx.fillRect(6, 6, 12, 4);
+
+  ctx.restore();
+}
+
+function drawPipe(x, topH, botY) {
+  const cap = 10;
+  // Top pipe
+  ctx.fillStyle = '#8b1a22';
+  ctx.fillRect(x, 0, PIPE_W, topH);
+  ctx.fillStyle = '#cc2936';
+  ctx.fillRect(x - 4, topH - 24, PIPE_W + 8, 24);
+  ctx.fillStyle = '#ff4d5a';
+  ctx.fillRect(x, 0, 8, topH);
+
+  // Bottom pipe
+  ctx.fillStyle = '#8b1a22';
+  ctx.fillRect(x, botY, PIPE_W, H - botY - GROUND_H);
+  ctx.fillStyle = '#cc2936';
+  ctx.fillRect(x - 4, botY, PIPE_W + 8, 24);
+  ctx.fillStyle = '#ff4d5a';
+  ctx.fillRect(x, botY + 24, 8, H - botY - 24 - GROUND_H);
+}
+
+function drawGround(offset) {
+  ctx.fillStyle = '#2d1b00';
+  ctx.fillRect(0, H - GROUND_H, W, GROUND_H);
+  ctx.fillStyle = '#4a2e00';
+  ctx.fillRect(0, H - GROUND_H, W, 8);
+  // animated grass bumps
+  ctx.fillStyle = '#3a6b35';
+  for (let i = 0; i < 12; i++) {
+    const bx = ((i * 34 - offset) % (W + 34) + W + 34) % (W + 34) - 17;
+    ctx.beginPath();
+    ctx.arc(bx, H - GROUND_H + 4, 10, Math.PI, 0);
+    ctx.fill();
+  }
+}
+
+function drawSky() {
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#0d0520');
+  grad.addColorStop(1, '#1a0a40');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// Parallax moon
+function drawMoon() {
+  ctx.fillStyle = 'rgba(255,248,220,0.15)';
+  ctx.beginPath();
+  ctx.arc(W - 50, 60, 30, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,248,220,0.08)';
+  ctx.beginPath();
+  ctx.arc(W - 50, 60, 42, 0, Math.PI*2);
+  ctx.fill();
+}
+
+// ─── Game loop ───────────────────────────────────────────────────
+let groundOffset = 0;
+
+function gameLoop() {
+  animFrame = requestAnimationFrame(gameLoop);
+  frame++;
+
+  drawSky();
+  drawMoon();
+
+  if (gameState === 'playing') {
+    // Bird physics
+    bird.vy += GRAVITY;
+    bird.y += bird.vy;
+    bird.angle = Math.min(Math.PI/2, bird.angle + 0.04);
+    bird.flapFrame = (bird.flapFrame + 1) % 8;
+
+    // Spawn pipes
+    if (frame % 90 === 0) {
+      const minTop = 60, maxTop = H - GROUND_H - PIPE_GAP - 60;
+      const topH = Math.floor(Math.random() * (maxTop - minTop) + minTop);
+      pipes.push({ x: W + 10, topH, botY: topH + PIPE_GAP, passed: false });
+    }
+
+    // Move pipes
+    pipes.forEach(p => { p.x -= PIPE_SPEED; });
+    pipes = pipes.filter(p => p.x > -PIPE_W - 10);
+
+    // Score
+    pipes.forEach(p => {
+      if (!p.passed && p.x + PIPE_W < bird.x) {
+        p.passed = true;
+        score++;
+        if (score > bestScore) {
+          bestScore = score;
+          localStorage.setItem('flappy-best', bestScore);
+        }
+      }
+    });
+
+    // Collisions
+    const bx = bird.x, by = bird.y;
+    const hitGround = by + 14 >= H - GROUND_H;
+    const hitCeiling = by - 14 <= 0;
+    let hitPipe = false;
+    pipes.forEach(p => {
+      if (bx + 14 > p.x + 4 && bx - 14 < p.x + PIPE_W - 4) {
+        if (by - 12 < p.topH || by + 12 > p.botY) hitPipe = true;
+      }
+    });
+
+    if (hitGround || hitCeiling || hitPipe) {
+      gameState = 'dead';
+      showDeadScreen();
+    }
+
+    groundOffset = (groundOffset + PIPE_SPEED) % 34;
+  }
+
+  // Draw pipes
+  pipes.forEach(p => drawPipe(p.x, p.topH, p.botY));
+
+  drawGround(groundOffset);
+
+  // Draw bird
+  if (gameState !== 'start') drawBird(bird.x, bird.y, bird.angle, bird.flapFrame);
+
+  // Score HUD
+  if (gameState === 'playing') {
+    ctx.fillStyle = '#fff8e7';
+    ctx.font = '20px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.fillText(score, W/2, 50);
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('BEST: ' + bestScore, W/2, 70);
+    ctx.textAlign = 'left';
+  }
+}
+
+function showDeadScreen() {
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('screen-dead').style.display = 'flex';
+  document.getElementById('msg').textContent = '';
+  document.getElementById('player-name').value = '';
+  loadLeaderboard('lb-dead-inner');
+}
+
+// ─── API calls ───────────────────────────────────────────────────
+const API = '';  // same origin
+
+async function loadLeaderboard(targetId) {
+  try {
+    const res = await fetch(`${API}/scores?limit=8`);
+    const data = await res.json();
+    const el = document.getElementById(targetId);
+    if (!data.length) { el.innerHTML = '<div class="lb-row" style="color:#666;font-family:VT323,monospace;font-size:16px;">Niciun scor inca...</div>'; return; }
+    el.innerHTML = data.map((s, i) =>
+      `<div class="lb-row">
+        <span class="rank">#${i+1}</span>
+        <span>${s.player_name}</span>
+        <span>${s.score}</span>
+      </div>`
+    ).join('');
+  } catch(e) {
+    const el = document.getElementById(targetId);
+    if (el) el.innerHTML = '<div class="lb-row" style="color:#666;font-family:VT323,monospace;font-size:16px;">Server offline</div>';
+  }
+}
+
+document.getElementById('btn-save').addEventListener('click', async () => {
+  const name = document.getElementById('player-name').value.trim() || 'ANONIM';
+  const msg = document.getElementById('msg');
+  msg.textContent = 'Se salveaza...';
+  try {
+    const res = await fetch(`${API}/scores`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ player_name: name, score })
+    });
+    if (res.ok) {
+      msg.textContent = '✓ Salvat!';
+      document.getElementById('score-form').style.opacity = '0.5';
+      document.getElementById('btn-save').disabled = true;
+      loadLeaderboard('lb-dead-inner');
+    } else {
+      msg.textContent = 'Eroare server.';
+    }
+  } catch(e) {
+    msg.textContent = 'Server offline.';
+  }
+});
+
+document.getElementById('btn-restart').addEventListener('click', () => {
+  document.getElementById('screen-dead').style.display = 'none';
+  initGame();
+});
+
+// ─── Init ────────────────────────────────────────────────────────
+bird = { x: 80, y: H/2 - 30, vy: 0, angle: 0, flapFrame: 0 };
+pipes = [];
+score = 0;
+frame = 0;
+bestScore = parseInt(localStorage.getItem('flappy-best') || '0');
+gameState = 'start';
+
+// Show leaderboard on start screen
+(async () => {
+  const res = await fetch(`${API}/scores?limit=5`).catch(() => null);
+  if (res && res.ok) {
+    const data = await res.json();
+    const el = document.getElementById('lb-start-inner');
+    if (data.length) {
+      el.innerHTML = `<div style="color:#ffd700;font-size:9px;font-family:'Press Start 2P',monospace;text-align:center;margin-bottom:6px;">🏆 TOP 5</div>` +
+        data.map((s,i) => `<div class="lb-row"><span class="rank">#${i+1}</span><span>${s.player_name}</span><span>${s.score}</span></div>`).join('');
+      el.style.cssText = 'background:rgba(0,0,0,0.5);border:2px solid #cc2936;padding:8px 14px;width:240px;';
+    }
+  }
+})();
+
+// Static bird on start screen
+function drawStartBird() {
+  if (gameState === 'start') {
+    const hover = Math.sin(Date.now() / 400) * 6;
+    drawBird(80, H/2 - 30 + hover, Math.sin(Date.now()/600)*0.15, Math.floor(Date.now()/120)%8);
+  }
+}
+
+gameLoop();
+// Override: also draw bird on start
+const origLoop = gameLoop;
+setInterval(() => {
+  if (gameState === 'start') {
+    const hover = Math.sin(Date.now() / 400) * 6;
+    drawBird(80, H/2 - 30 + hover, Math.sin(Date.now()/600)*0.15, Math.floor(Date.now()/120)%8);
+  }
+}, 16);
+</script>
+</body>
+</html>

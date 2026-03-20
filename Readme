@@ -1,0 +1,85 @@
+# 🐦 Flappy-RO
+
+Romanian-themed Flappy Bird game — deployed on k3s homelab.
+
+**Live:** https://flappy.slax.ro
+
+---
+
+## Stack
+- **Frontend:** Vanilla JS canvas game (single HTML file)
+- **Backend:** FastAPI + asyncpg
+- **Database:** PostgreSQL 16 (StatefulSet, NFS PVC)
+- **Deployment:** k3s (namespace: flappy-ro)
+- **CI/CD:** GitHub Actions (self-hosted runner on control-node)
+- **Public:** Cloudflare Tunnel → HAProxy → Nginx Ingress → k3s
+
+---
+
+## Deploy from scratch
+
+### 1. Create the secret (do this FIRST, never commit real passwords)
+```bash
+kubectl create secret generic flappy-secret -n flappy-ro \
+  --from-literal=POSTGRES_DB=flappydb \
+  --from-literal=POSTGRES_USER=flappy \
+  --from-literal=POSTGRES_PASSWORD=flappypass \
+  --from-literal=DATABASE_URL="postgresql://flappy:flappypass@postgres-service:5432/flappydb"
+```
+
+### 2. Apply manifests
+```bash
+kubectl apply -f k3s/postgres.yaml
+kubectl apply -f k3s/deployment.yaml
+```
+
+### 3. Verify
+```bash
+kubectl get pods -n flappy-ro -o wide
+kubectl get svc -n flappy-ro
+kubectl get pvc -n flappy-ro
+kubectl logs -l app=flappy-ro -n flappy-ro
+```
+
+### 4. Add HAProxy backend (on 192.168.1.99)
+Add to `/etc/haproxy/haproxy.cfg`:
+```
+frontend flappy_front
+    bind *:8090
+    default_backend flappy_back
+
+backend flappy_back
+    balance roundrobin
+    option httpchk GET /health
+    server worker01 192.168.1.54:32527 check inter 30s rise 2 fall 3
+    server worker02 192.168.1.55:32527 check inter 30s rise 2 fall 3
+```
+Or route via Nginx Ingress (recommended — uses existing port 80 via hostname).
+
+### 5. Cloudflare Tunnel
+Add route in Cloudflare dashboard:
+- `flappy.slax.ro` → `http://192.168.1.99:80`  (if using Nginx Ingress + HAProxy port 80)
+
+---
+
+## NodePort
+`32527` — same on all worker nodes.
+
+---
+
+## DB Commands
+```bash
+# Check scores
+kubectl exec -it postgres-0 -n flappy-ro -- \
+  psql -U flappy -d flappydb -c "SELECT * FROM scores ORDER BY score DESC;"
+
+# Delete all scores
+kubectl exec -it postgres-0 -n flappy-ro -- \
+  psql -U flappy -d flappydb -c "DELETE FROM scores;"
+```
+
+---
+
+## GitHub Secrets needed
+- `DOCKERHUB_USERNAME` → mariuseu
+- `DOCKERHUB_TOKEN` → Docker Hub token
