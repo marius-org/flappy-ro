@@ -56,6 +56,7 @@
       box-shadow: 0 0 30px rgba(204,41,54,0.5), 0 0 60px rgba(204,41,54,0.2);
       image-rendering: pixelated;
       display: block;
+      max-height: 90vh;
     }
     #hud {
       position: absolute;
@@ -112,8 +113,8 @@
       background: rgba(0,0,0,0.6);
       border: 2px solid var(--accent);
       padding: 10px 16px;
-      width: 260px;
-      max-height: 180px;
+      width: 320px;
+      max-height: 200px;
       overflow-y: auto;
     }
     #leaderboard h3 {
@@ -181,7 +182,7 @@
   <div id="title">🇷🇴 FLAPPY-RO 🇷🇴</div>
 
   <div style="position:relative;">
-    <canvas id="canvas" width="360" height="540"></canvas>
+    <canvas id="canvas" width="480" height="700"></canvas>
 
     <!-- START SCREEN -->
     <div class="overlay" id="screen-start">
@@ -245,12 +246,12 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
 
-const GRAVITY = 0.45;
-const JUMP = -8.5;
-const PIPE_W = 52;
-const PIPE_GAP = 145;
-const PIPE_SPEED = 2.6;
-const GROUND_H = 70;
+const GRAVITY = 0.38;
+const JUMP = -8;
+const PIPE_W = 64;
+const PIPE_GAP = 180;
+const PIPE_SPEED = 2.4;
+const GROUND_H = 80;
 
 let bird, pipes, score, bestScore, gameState, frame, animFrame;
 // gameState: 'start' | 'playing' | 'dead'
