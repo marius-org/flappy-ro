@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: flappy-ro
-          image: mariuseu/flappy-ro:latest
+          image: mariuseu/flappy-ro:6
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
