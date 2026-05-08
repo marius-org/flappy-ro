@@ -3,14 +3,20 @@ name: Build & Deploy Flappy-RO
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'k3s/**'
+      - 'README.md'
+      - '*.md'
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: control-node
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set image tag
         run: echo "IMAGE_TAG=${{ github.run_number }}" >> $GITHUB_ENV
@@ -30,16 +36,15 @@ jobs:
             mariuseu/flappy-ro:latest
             mariuseu/flappy-ro:${{ env.IMAGE_TAG }}
 
-      - name: Deploy to k3s
+      - name: Update image tag in manifest
         run: |
-          kubectl apply -f k3s/postgres.yaml  # no secret - create manually!
-          kubectl apply -f k3s/deployment.yaml
-          kubectl set image deployment/flappy-ro \
-            flappy-ro=mariuseu/flappy-ro:${{ env.IMAGE_TAG }} \
-            -n flappy-ro
-          kubectl rollout status deployment/flappy-ro -n flappy-ro --timeout=120s
+          sed -i "s|mariuseu/flappy-ro:.*|mariuseu/flappy-ro:${{ env.IMAGE_TAG }}|g" \
+            k3s/deployment.yaml
 
-      - name: Verify
+      - name: Commit and push updated manifest
         run: |
-          kubectl get pods -n flappy-ro
-          kubectl get svc -n flappy-ro
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add k3s/deployment.yaml
+          git commit -m "Update flappy-ro image to ${{ env.IMAGE_TAG }} [skip ci]"
+          git push
